@@ -47,6 +47,3 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/techstore:${{ github.sha }}
-
-      - name: Save Docker image locally
-        run: docker save ${{ secrets.DOCKER_USERNAME }}/techstore:${{ github.sha }}
