@@ -35,15 +35,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Build Docker image
+        run: |
+          docker build -t techstore:${{ github.sha }} .
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/techstore:${{ github.sha }}
+      - name: Push Docker image to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_IP: ${{ secrets.VPS_IP }}
+        run: |
+          echo "SSH_PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          scp -i private_key.pem docker-compose.yml root@$VPS_IP:/home/app/
+          scp -i private_key.pem techstore.jar root@$VPS_IP:/home/app/
+          ssh -i private_key.pem root@$VPS_IP << 'EOF'
+          cd /home/app
+          docker load < techstore.jar
+          docker-compose down 
+          docker-compose up -d
+          EOF
+          rm private_key.pem
