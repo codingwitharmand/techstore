@@ -44,7 +44,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VPS_IP: ${{ secrets.VPS_IP }}
         run: |
-          echo "SSH_PRIVATE_KEY" > private_key.pem
+          echo "$SSH_PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           scp -i private_key.pem docker-compose.yml root@$VPS_IP:/home/app/
           scp -i private_key.pem techstore.jar root@$VPS_IP:/home/app/
