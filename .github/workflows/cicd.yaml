@@ -62,4 +62,3 @@ jobs:
             docker-compose up --build -d
             docker image prune -f
             docker ps
-            docker logs -f --tail=100
