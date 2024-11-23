@@ -43,6 +43,7 @@ jobs:
           host: ${{ env.VPS_IP }}
           username: ${{ env.VPS_USER }}
           key: ${{ env.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "target/*.jar,docker-compose.yml,Dockerfile"
           target: ${{ env.DEPLOY_PATH }}
           strip_components: 0
@@ -53,6 +54,7 @@ jobs:
           host: ${{ env.VPS_IP }}
           username: ${{ env.VPS_USER }}
           key: ${{ env.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
             docker-compose down || true
