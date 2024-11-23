@@ -5,6 +5,11 @@ on:
     branches: ["release"]
   pull_request:
     branches: ["release"]
+env:
+  VPS_IP: ${{ secrets.VPS_IP }}
+  VPS_USER: ${{ secrets.VPS_USER }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  DEPLOY_PATH: /opt/techstore
 
 jobs:
   build:
@@ -32,30 +37,44 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -Dspring.profiles.active=dev
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Create SSH key
+        run: mkdir -p ~/.ssh
 
-      - name: Build Docker image
-        run: |
-          docker build -t techstore:${{ github.sha }} .
+      - name: Store SSH key
+        run: echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
 
-      - name: Add VPS to known_hosts
-        run: |
-          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Add host key
+        run: ssh-keyscan -H ${{ env.VPS_IP }} >> ~/.ssh/known_hosts
 
-      - name: Push Docker image to VPS
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VPS_IP: ${{ secrets.VPS_IP }}
+      - name: Prepare deployment on VPS
         run: |
-          echo "$SSH_PRIVATE_KEY" > private_key
-          chmod 600 private_key
-          scp -i private_key docker-compose.yml root@$VPS_IP:/home/app/
-          scp -i private_key techstore.jar root@$VPS_IP:/home/app/
-          ssh -i private_key root@$VPS_IP << 'EOF'
-          cd /home/app
-          docker load < techstore.jar
-          docker-compose down 
-          docker-compose up -d
-          EOF
-          rm private_key.pem
+          ssh ${{ env.VPS_USER }}@${{ env.VPS_IP }} "
+            mkdir -p ${{ env.DEPLOY_PATH }}
+            mkdir -p ${{ env.DEPLOY_PATH }}/target
+          "
+      - name: Copy files to VPS
+        run: |
+          # Copy JAR file
+          scp target/*.jar ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/target/
+          # Copy docker-compose.yml
+          scp docker-compose.yml ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/
+          # Copy Dockerfile
+          scp Dockerfile ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/
+
+      - name: Deploy on VPS
+        run: |
+          ssh ${{ env.VPS_USER }}@${{ env.VPS_IP }} "
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Stop running containers
+            docker-compose down || true
+            
+            # Remove old images
+            docker-compose rm -f || true
+          
+            # Build and start new containers
+            docker-compose up --build -d
+            
+            # Remove unused images (optional)
+            docker image prune -f
+          "
