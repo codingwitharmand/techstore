@@ -44,11 +44,11 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VPS_IP: ${{ secrets.VPS_IP }}
         run: |
-          echo "$SSH_PRIVATE_KEY" > private_key.pem
-          chmod 600 private_key.pem
-          scp -i private_key.pem docker-compose.yml root@$VPS_IP:/home/app/
-          scp -i private_key.pem techstore.jar root@$VPS_IP:/home/app/
-          ssh -i private_key.pem root@$VPS_IP << 'EOF'
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          scp -i private_key docker-compose.yml root@$VPS_IP:/home/app/
+          scp -i private_key techstore.jar root@$VPS_IP:/home/app/
+          ssh -i private_key root@$VPS_IP << 'EOF'
           cd /home/app
           docker load < techstore.jar
           docker-compose down 
