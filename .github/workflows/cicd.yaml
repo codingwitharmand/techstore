@@ -37,44 +37,27 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -Dspring.profiles.active=dev
 
-      - name: Create SSH key
-        run: mkdir -p ~/.ssh
+      - name: Copy files via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
+          source: "target/*.jar,docker-compose.yml,Dockerfile"
+          target: ${{ env.DEPLOY_PATH }}
+          strip_components: 0
 
-      - name: Store SSH key
-        run: echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
-
-      - name: Add host key
-        run: ssh-keyscan -H ${{ env.VPS_IP }} >> ~/.ssh/known_hosts
-
-      - name: Prepare deployment on VPS
-        run: |
-          ssh ${{ env.VPS_USER }}@${{ env.VPS_IP }} "
-            mkdir -p ${{ env.DEPLOY_PATH }}
-            mkdir -p ${{ env.DEPLOY_PATH }}/target
-          "
-      - name: Copy files to VPS
-        run: |
-          # Copy JAR file
-          scp target/*.jar ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/target/
-          # Copy docker-compose.yml
-          scp docker-compose.yml ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/
-          # Copy Dockerfile
-          scp Dockerfile ${{ env.VPS_USER }}@VPS_IP:${{ env.DEPLOY_PATH }}/
-
-      - name: Deploy on VPS
-        run: |
-          ssh ${{ env.VPS_USER }}@${{ env.VPS_IP }} "
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
+          script: |
             cd ${{ env.DEPLOY_PATH }}
-            
-            # Stop running containers
             docker-compose down || true
-            
-            # Remove old images
-            docker-compose rm -f || true
-          
-            # Build and start new containers
+            docker-compose pull
             docker-compose up --build -d
-            
-            # Remove unused images (optional)
             docker image prune -f
-          "
+            docker ps
+            docker logs -f --tail=100
